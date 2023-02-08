@@ -17,16 +17,18 @@ var normalStyle = lipgloss.NewStyle().
 	Padding(2).
 	Align(lipgloss.Center).
 	Width(12).
-	Height(8)
+	Height(8).
+	Margin(0, 2)
 
 var selectedStyle = lipgloss.NewStyle().
 	Bold(true).
 	BorderStyle(lipgloss.ThickBorder()).
-	BorderForeground(lipgloss.Color("3")).
+	BorderForeground(lipgloss.Color("255")).
 	Padding(2).
 	Align(lipgloss.Center).
-	Width(12).
-	Height(8)
+	Width(13).
+	Height(9).
+	Margin(0, 2)
 
 type model struct {
 	cursor   int
@@ -35,19 +37,19 @@ type model struct {
 }
 
 type card struct {
-	value  int
+	value  string
 	symbol string
-	color  int
+	color  string
 }
 
 var (
 	symbols = []string{"❄️", "💧", "🔥"}
-	colors  = []int{1, 100, 200, 255}
+	colors  = []string{"#863ba4", "#58a7e5", "#eab942", "#93c47d"}
 )
 
 func buildCard() card {
 	rand.Seed(time.Now().UnixNano())
-	val := rand.Intn(12-1+1) + 1
+	val := strconv.Itoa(rand.Intn(12-1+1) + 1)
 	sym := symbols[rand.Intn(len(symbols))]
 	col := colors[rand.Intn(len(colors))]
 
@@ -102,11 +104,11 @@ func (m model) View() string {
 	s = "What card to play?\n\n"
 
 	for i, choice := range m.deck {
-		choiceString := strconv.Itoa(choice.value) + choice.symbol
+		normalStyle.BorderForeground(lipgloss.Color(choice.color))
 		if i == m.cursor {
-			cards = append(cards, selectedStyle.Render(choiceString))
+			cards = append(cards, selectedStyle.Render(choice.value+choice.symbol))
 		} else {
-			cards = append(cards, normalStyle.Render(choiceString))
+			cards = append(cards, normalStyle.Render(choice.value+choice.symbol))
 		}
 	}
 
