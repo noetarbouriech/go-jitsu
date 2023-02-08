@@ -109,13 +109,21 @@ func (m model) View() string {
 	var s string
 	var cards []string
 	if m.cardPlayed.value != "" {
+		selectedStyle.BorderForeground(lipgloss.Color(m.cardPlayed.color))
 		s += "Card played:\n\n"
-		s += selectedStyle.Render(m.cardPlayed.value + m.cardPlayed.symbol)
+		var playedCards = []string{}
+		playedCards = append(playedCards, selectedStyle.Render(m.cardPlayed.value+m.cardPlayed.symbol))
+		playedCards = append(playedCards, selectedStyle.Render(m.cardPlayed.value+m.cardPlayed.symbol))
+
+		s += lipgloss.JoinHorizontal(lipgloss.Center, playedCards...)
+
 	}
-	s += "\nWhat card to play?\n\n"
+	s += "\nWhat card to play?\nq"
 
 	for i, choice := range m.deck {
+		selectedStyle.BorderForeground(lipgloss.Color(255))
 		normalStyle.BorderForeground(lipgloss.Color(choice.color))
+
 		if i == m.cursor {
 			cards = append(cards, selectedStyle.Render(choice.value+choice.symbol))
 		} else {
