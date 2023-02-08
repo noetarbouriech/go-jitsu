@@ -11,10 +11,18 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-var style = lipgloss.NewStyle().
-	Bold(true).
+var normalStyle = lipgloss.NewStyle().
 	BorderStyle(lipgloss.NormalBorder()).
 	BorderForeground(lipgloss.Color("63")).
+	Padding(2).
+	Align(lipgloss.Center).
+	Width(12).
+	Height(8)
+
+var selectedStyle = lipgloss.NewStyle().
+	Bold(true).
+	BorderStyle(lipgloss.ThickBorder()).
+	BorderForeground(lipgloss.Color("3")).
 	Padding(2).
 	Align(lipgloss.Center).
 	Width(12).
@@ -32,8 +40,10 @@ type card struct {
 	color  int
 }
 
-var symbols = []string{"❄️", "💧", "🔥"}
-var colors = []int{1, 100, 200, 255}
+var (
+	symbols = []string{"❄️", "💧", "🔥"}
+	colors  = []int{1, 100, 200, 255}
+)
 
 func buildCard() card {
 	rand.Seed(time.Now().UnixNano())
@@ -46,15 +56,11 @@ func buildCard() card {
 }
 
 func initialModel() model {
-
 	deck := []card{buildCard(), buildCard(), buildCard(), buildCard(), buildCard()}
 
 	return model{
-		deck: deck,
-
-		// A map which indicates which choices are selected. We're using
-		// the  map like a mathematical set. The keys refer to the indexes
-		// of the `choices` slice, above.
+		deck:     deck,
+		cursor:   0,
 		selected: make(map[int]struct{}),
 	}
 }
@@ -95,21 +101,22 @@ func (m model) View() string {
 	var cards []string
 	s = "What card to play?\n\n"
 
-	for _, choice := range m.deck {
+	for i, choice := range m.deck {
 		choiceString := strconv.Itoa(choice.value) + choice.symbol
-
-		cards = append(cards, style.Render(choiceString))
-		// s += fmt.Sprintf("%s [%s] %s\n", cursor, checked, choice)
+		if i == m.cursor {
+			cards = append(cards, selectedStyle.Render(choiceString))
+		} else {
+			cards = append(cards, normalStyle.Render(choiceString))
+		}
 	}
 
 	s += lipgloss.JoinHorizontal(lipgloss.Center, cards...)
-	s += "\nPress q to quit.\n"
 
-	return s
+	return lipgloss.Place(220, 100, lipgloss.Center, lipgloss.Bottom, s)
 }
 
 func main() {
-	p := tea.NewProgram(initialModel())
+	p := tea.NewProgram(initialModel(), tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
 		fmt.Printf("Alas, there's been an error: %v", err)
 		os.Exit(1)
