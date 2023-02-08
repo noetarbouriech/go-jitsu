@@ -1,9 +1,14 @@
 package main
 
 import (
-	"fmt"
+	"github.com/noetarbouriech/go-jitsu/server"
+)
+
+const (
+	host = "localhost"
+	port = 3000
 )
 
 func main() {
-	fmt.Println("Here we begin...")
+	server.InitServer(host, port)
 }

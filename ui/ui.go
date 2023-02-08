@@ -1,14 +1,13 @@
-package main
+package ui
 
 import (
-	"fmt"
 	"math/rand"
-	"os"
 	"strconv"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/ssh"
 )
 
 var normalStyle = lipgloss.NewStyle().
@@ -31,6 +30,8 @@ var selectedStyle = lipgloss.NewStyle().
 	Margin(0, 2)
 
 type model struct {
+	termWidth  int
+	termHeight int
 	cursor     int
 	deck       []card
 	selected   card
@@ -58,13 +59,15 @@ func buildCard() card {
 	return card
 }
 
-func initialModel() model {
+func initialModel(pty ssh.Pty) model {
 	deck := []card{buildCard(), buildCard(), buildCard(), buildCard(), buildCard()}
 
 	return model{
-		cursor:   0,
-		deck:     deck,
-		selected: card{value: "", symbol: "", color: ""},
+		termWidth:  pty.Window.Width,
+		termHeight: pty.Window.Height,
+		cursor:     0,
+		deck:       deck,
+		selected:   card{value: "", symbol: "", color: ""},
 		cardPlayed: card{
 			value:  "",
 			symbol: "",
@@ -124,13 +127,10 @@ func (m model) View() string {
 	}
 
 	s += lipgloss.JoinHorizontal(lipgloss.Center, cards...)
-	return lipgloss.Place(220, 100, lipgloss.Center, lipgloss.Center, s)
+	return lipgloss.Place(m.termWidth, m.termHeight, lipgloss.Center, lipgloss.Center, s)
 }
 
-func main() {
-	p := tea.NewProgram(initialModel(), tea.WithAltScreen())
-	if _, err := p.Run(); err != nil {
-		fmt.Printf("Alas, there's been an error: %v", err)
-		os.Exit(1)
-	}
+func TeaHandler(s ssh.Session) (tea.Model, []tea.ProgramOption) {
+	pty, _, _ := s.Pty()
+	return initialModel(pty), []tea.ProgramOption{tea.WithAltScreen()}
 }
