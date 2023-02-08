@@ -2,7 +2,10 @@ package main
 
 import (
 	"fmt"
+	"math/rand"
 	"os"
+	"strconv"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -19,13 +22,35 @@ var style = lipgloss.NewStyle().
 
 type model struct {
 	cursor   int
-	deck     []string
+	deck     []card
 	selected map[int]struct{}
 }
 
+type card struct {
+	value  int
+	symbol string
+	color  int
+}
+
+var symbols = []string{"❄️", "💧", "🔥"}
+var colors = []int{1, 100, 200, 255}
+
+func buildCard() card {
+	rand.Seed(time.Now().UnixNano())
+	val := rand.Intn(12-1+1) + 1
+	sym := symbols[rand.Intn(len(symbols))]
+	col := colors[rand.Intn(len(colors))]
+
+	card := card{value: val, symbol: sym, color: col}
+	return card
+}
+
 func initialModel() model {
+
+	deck := []card{buildCard(), buildCard(), buildCard(), buildCard(), buildCard()}
+
 	return model{
-		deck: []string{"11💧", "2❄️", "4💧", "8🔥"},
+		deck: deck,
 
 		// A map which indicates which choices are selected. We're using
 		// the  map like a mathematical set. The keys refer to the indexes
@@ -71,7 +96,9 @@ func (m model) View() string {
 	s = "What card to play?\n\n"
 
 	for _, choice := range m.deck {
-		cards = append(cards, style.Render(choice))
+		choiceString := strconv.Itoa(choice.value) + choice.symbol
+
+		cards = append(cards, style.Render(choiceString))
 		// s += fmt.Sprintf("%s [%s] %s\n", cursor, checked, choice)
 	}
 
