@@ -31,9 +31,10 @@ var selectedStyle = lipgloss.NewStyle().
 	Margin(0, 2)
 
 type model struct {
-	cursor   int
-	deck     []card
-	selected map[int]struct{}
+	cursor     int
+	deck       []card
+	selected   card
+	cardPlayed card
 }
 
 type card struct {
@@ -61,9 +62,14 @@ func initialModel() model {
 	deck := []card{buildCard(), buildCard(), buildCard(), buildCard(), buildCard()}
 
 	return model{
-		deck:     deck,
 		cursor:   0,
-		selected: make(map[int]struct{}),
+		deck:     deck,
+		selected: card{value: "", symbol: "", color: ""},
+		cardPlayed: card{
+			value:  "",
+			symbol: "",
+			color:  "",
+		},
 	}
 }
 
@@ -86,12 +92,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.cursor++
 			}
 		case "enter", " ":
-			_, ok := m.selected[m.cursor]
-			if ok {
-				delete(m.selected, m.cursor)
-			} else {
-				m.selected[m.cursor] = struct{}{}
-			}
+			// show card on the middle of the screen
+			m.cardPlayed = m.deck[m.cursor]
+			// remove card from deck
+			m.deck = append(m.deck[:m.cursor], m.deck[m.cursor+1:]...)
+			// put cursor back to 0
+			m.cursor = 0
+			// TODO: add new card to deck
 		}
 	}
 
@@ -101,7 +108,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m model) View() string {
 	var s string
 	var cards []string
-	s = "What card to play?\n\n"
+	if m.cardPlayed.value != "" {
+		s += "Card played:\n\n"
+		s += selectedStyle.Render(m.cardPlayed.value + m.cardPlayed.symbol)
+	}
+	s += "\nWhat card to play?\n\n"
 
 	for i, choice := range m.deck {
 		normalStyle.BorderForeground(lipgloss.Color(choice.color))
@@ -113,8 +124,7 @@ func (m model) View() string {
 	}
 
 	s += lipgloss.JoinHorizontal(lipgloss.Center, cards...)
-
-	return lipgloss.Place(220, 100, lipgloss.Center, lipgloss.Bottom, s)
+	return lipgloss.Place(220, 100, lipgloss.Center, lipgloss.Center, s)
 }
 
 func main() {
