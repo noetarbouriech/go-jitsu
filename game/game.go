@@ -1,14 +1,75 @@
-package ui
+package game
 
 import (
+	"fmt"
 	"math/rand"
 	"strconv"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/ssh"
+	"github.com/charmbracelet/wish"
+	bm "github.com/charmbracelet/wish/bubbletea"
+	"github.com/muesli/termenv"
 )
+
+// All users connected
+var (
+	users []ssh.Session
+)
+
+type Room struct {
+	playerCount int
+	player1     ssh.Session
+	player2     ssh.Session
+}
+
+var room Room
+
+func GameMiddleware() wish.Middleware {
+	if room == (Room{}) {
+		room = Room{
+			playerCount: 0,
+			player1:     nil,
+			player2:     nil,
+		}
+		fmt.Println("New room created")
+	}
+	newProg := func(m tea.Model, opts ...tea.ProgramOption) *tea.Program {
+		p := tea.NewProgram(m, opts...)
+		go func() {
+			for {
+				<-time.After(1 * time.Second)
+				p.Send(time.Time(time.Now()))
+			}
+		}()
+		return p
+	}
+	teaHandler := func(s ssh.Session) *tea.Program {
+		_, _, active := s.Pty()
+		if !active {
+			wish.Fatalln(s, "no active terminal, skipping")
+			return nil
+		}
+		if room.playerCount == 0 {
+			room.player1 = s
+			fmt.Println("new player 1 connected")
+		} else if room.playerCount == 1 {
+			room.player2 = s
+			fmt.Println("new player 2 connected")
+		} else {
+			wish.Println(s, lipgloss.NewStyle().BorderStyle(lipgloss.DoubleBorder()).Padding(1).Align(lipgloss.Center).Render("\nToo many players online 💩\n"))
+			s.Close()
+			return nil
+		}
+		room.playerCount++
+		m, _ := TeaHandler(s, room)
+		return newProg(m, tea.WithInput(s), tea.WithOutput(s), tea.WithAltScreen())
+	}
+	return bm.MiddlewareWithProgramHandler(teaHandler, termenv.ANSI256)
+}
 
 var normalStyle = lipgloss.NewStyle().
 	BorderStyle(lipgloss.NormalBorder()).
@@ -32,6 +93,8 @@ var selectedStyle = lipgloss.NewStyle().
 type model struct {
 	termWidth  int
 	termHeight int
+	session    ssh.Session
+	room       Room
 	cursor     int
 	deck       []card
 	selected   card
@@ -59,20 +122,19 @@ func buildCard() card {
 	return card
 }
 
-func initialModel(pty ssh.Pty) model {
+func initialModel(s ssh.Session, r Room) model {
 	deck := []card{buildCard(), buildCard(), buildCard(), buildCard(), buildCard()}
+	pty, _, _ := s.Pty()
 
 	return model{
 		termWidth:  pty.Window.Width,
 		termHeight: pty.Window.Height,
+		session:    s,
+		room:       r,
 		cursor:     0,
 		deck:       deck,
 		selected:   card{value: "", symbol: "", color: ""},
-		cardPlayed: card{
-			value:  "",
-			symbol: "",
-			color:  "",
-		},
+		cardPlayed: card{value: "", symbol: "", color: ""},
 	}
 }
 
@@ -85,6 +147,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "ctrl+c", "q":
+			if room.player2 == nil {
+				room.player1 = nil
+				fmt.Println("player 1 disconnected")
+			} else {
+				room.player2 = nil
+				fmt.Println("player 2 disconnected")
+			}
+			m.session.Close()
 			return m, tea.Quit
 		case "left", "h":
 			if m.cursor > 0 {
@@ -114,17 +184,17 @@ func (m model) View() string {
 	if m.cardPlayed.value != "" {
 		selectedStyle.BorderForeground(lipgloss.Color(m.cardPlayed.color))
 		s += "Card played:\n\n"
-		var playedCards = []string{}
+		playedCards := []string{}
 		playedCards = append(playedCards, selectedStyle.Render(m.cardPlayed.value+m.cardPlayed.symbol))
 		playedCards = append(playedCards, selectedStyle.Render(m.cardPlayed.value+m.cardPlayed.symbol))
 
 		s += lipgloss.JoinHorizontal(lipgloss.Center, playedCards...)
 
 	}
-	s += "\nWhat card to play?\nq"
+	s += "\nWhat card to play?\n"
 
 	for i, choice := range m.deck {
-		selectedStyle.BorderForeground(lipgloss.Color(255))
+		selectedStyle.BorderForeground(lipgloss.Color(rune(255)))
 		normalStyle.BorderForeground(lipgloss.Color(choice.color))
 
 		if i == m.cursor {
@@ -138,7 +208,6 @@ func (m model) View() string {
 	return lipgloss.Place(m.termWidth, m.termHeight, lipgloss.Center, lipgloss.Center, s)
 }
 
-func TeaHandler(s ssh.Session) (tea.Model, []tea.ProgramOption) {
-	pty, _, _ := s.Pty()
-	return initialModel(pty), []tea.ProgramOption{tea.WithAltScreen()}
+func TeaHandler(s ssh.Session, r Room) (tea.Model, []tea.ProgramOption) {
+	return initialModel(s, r), []tea.ProgramOption{tea.WithAltScreen()}
 }
