@@ -15,25 +15,20 @@ import (
 	"github.com/muesli/termenv"
 )
 
-// All users connected
-var (
-	users []ssh.Session
-)
+type player struct {
+	cardPlayed chan card
+}
 
 type Room struct {
-	playerCount int
-	player1     ssh.Session
-	player2     ssh.Session
+	players map[string]player
 }
 
 var room Room
 
 func GameMiddleware() wish.Middleware {
-	if room == (Room{}) {
+	if len(room.players) == 0 {
 		room = Room{
-			playerCount: 0,
-			player1:     nil,
-			player2:     nil,
+			players: make(map[string]player),
 		}
 		fmt.Println("New room created")
 	}
@@ -53,18 +48,14 @@ func GameMiddleware() wish.Middleware {
 			wish.Fatalln(s, "no active terminal, skipping")
 			return nil
 		}
-		if room.playerCount == 0 {
-			room.player1 = s
-			fmt.Println("new player 1 connected")
-		} else if room.playerCount == 1 {
-			room.player2 = s
-			fmt.Println("new player 2 connected")
+		if len(room.players) < 2 {
+			room.players[s.Context().SessionID()] = player{make(chan card)}
+			fmt.Println("new player connected")
 		} else {
 			wish.Println(s, lipgloss.NewStyle().BorderStyle(lipgloss.DoubleBorder()).Padding(1).Align(lipgloss.Center).Render("\nToo many players online 💩\n"))
 			s.Close()
 			return nil
 		}
-		room.playerCount++
 		m, _ := TeaHandler(s, room)
 		return newProg(m, tea.WithInput(s), tea.WithOutput(s), tea.WithAltScreen())
 	}
@@ -147,12 +138,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "ctrl+c", "q":
-			if room.player2 == nil {
-				room.player1 = nil
-				fmt.Println("player 1 disconnected")
-			} else {
-				room.player2 = nil
-				fmt.Println("player 2 disconnected")
+			// reset cards played
+			// TODO: close session of all players
+			m.room = Room{
+				players: map[string]player{},
 			}
 			m.session.Close()
 			return m, tea.Quit
@@ -167,10 +156,16 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "enter", " ":
 			// show card on the middle of the screen
 			m.cardPlayed = m.deck[m.cursor]
+
+			// add card to channel
+			(m.room.players[m.session.Context().SessionID()]).cardPlayed <- m.cardPlayed
+
 			// remove card from deck
 			m.deck = append(m.deck[:m.cursor], m.deck[m.cursor+1:]...)
+
 			// put cursor back to 0
 			m.cursor = 0
+
 			// TODO: add new card to deck
 		}
 	}
@@ -186,7 +181,8 @@ func (m model) View() string {
 		s += "Card played:\n\n"
 		playedCards := []string{}
 		playedCards = append(playedCards, selectedStyle.Render(m.cardPlayed.value+m.cardPlayed.symbol))
-		playedCards = append(playedCards, selectedStyle.Render(m.cardPlayed.value+m.cardPlayed.symbol))
+		// TODO: add card from other player
+		// playedCards = append(playedCards, selectedStyle.Render((<-m.room.players).value+(<-m.room.cardsPlayed).symbol))
 
 		s += lipgloss.JoinHorizontal(lipgloss.Center, playedCards...)
 
