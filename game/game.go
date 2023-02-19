@@ -1,7 +1,9 @@
 package game
 
 import (
+	"errors"
 	"fmt"
+	"log"
 	"math/rand"
 	"strconv"
 	"time"
@@ -82,14 +84,14 @@ var selectedStyle = lipgloss.NewStyle().
 	Margin(0, 2)
 
 type model struct {
-	termWidth  int
-	termHeight int
-	session    ssh.Session
-	room       Room
-	cursor     int
-	deck       []card
-	selected   card
-	cardPlayed card
+	termWidth         int
+	termHeight        int
+	session           ssh.Session
+	room              Room
+	cursor            int
+	deck              []card
+	cardPlayedByMe    card
+	cardPlayedByOther card
 }
 
 type card struct {
@@ -118,14 +120,14 @@ func initialModel(s ssh.Session, r Room) model {
 	pty, _, _ := s.Pty()
 
 	return model{
-		termWidth:  pty.Window.Width,
-		termHeight: pty.Window.Height,
-		session:    s,
-		room:       r,
-		cursor:     0,
-		deck:       deck,
-		selected:   card{value: "", symbol: "", color: ""},
-		cardPlayed: card{value: "", symbol: "", color: ""},
+		termWidth:         pty.Window.Width,
+		termHeight:        pty.Window.Height,
+		session:           s,
+		room:              r,
+		cursor:            0,
+		deck:              deck,
+		cardPlayedByMe:    card{value: "", symbol: "", color: ""},
+		cardPlayedByOther: card{value: "", symbol: "", color: ""},
 	}
 }
 
@@ -157,10 +159,20 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case "enter", " ":
 			// show card on the middle of the screen
-			m.cardPlayed = m.deck[m.cursor]
+			m.cardPlayedByMe = m.deck[m.cursor]
+
+			// print card played by player
+			fmt.Println(m.cardPlayedByMe)
 
 			// add card to channel
-			(m.room.players[m.session]).cardPlayed <- m.cardPlayed
+			go m.playCard(m.cardPlayedByMe)
+
+			// get other player card
+			otherPlayer, err := m.getOtherPlayer()
+			if err != nil {
+				log.Fatal(err)
+			}
+			m.cardPlayedByOther = <-otherPlayer.cardPlayed
 
 			// remove card from deck
 			m.deck = append(m.deck[:m.cursor], m.deck[m.cursor+1:]...)
@@ -175,17 +187,30 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+func (m model) playCard(cardPlayed card) {
+	m.room.players[m.session].cardPlayed <- cardPlayed
+}
+
+func (m model) getOtherPlayer() (player, error) {
+	for _, p := range m.room.players {
+		if m.room.players[m.session] != p {
+			return p, nil
+		}
+	}
+	return player{}, errors.New("No player found")
+}
+
 func (m model) View() string {
 	var s string
 	var cards []string
-	if m.cardPlayed.value != "" {
-		selectedStyle.BorderForeground(lipgloss.Color(m.cardPlayed.color))
+	if m.cardPlayedByMe.value != "" {
+		selectedStyle.BorderForeground(lipgloss.Color(m.cardPlayedByMe.color))
 		s += "Card played:\n\n"
-		playedCards := []string{}
-		playedCards = append(playedCards, selectedStyle.Render(m.cardPlayed.value+m.cardPlayed.symbol))
-		// TODO: add card from other player
-		// playedCards = append(playedCards, selectedStyle.Render((<-m.room.players).value+(<-m.room.cardsPlayed).symbol))
-
+		// display current card and other player card
+		playedCards := []string{
+			normalStyle.BorderForeground(lipgloss.Color(m.cardPlayedByMe.color)).Render(m.cardPlayedByMe.value + m.cardPlayedByMe.symbol),
+			normalStyle.BorderForeground(lipgloss.Color(m.cardPlayedByOther.color)).Render(m.cardPlayedByOther.value + m.cardPlayedByOther.symbol),
+		}
 		s += lipgloss.JoinHorizontal(lipgloss.Center, playedCards...)
 
 	}
