@@ -20,7 +20,7 @@ type player struct {
 }
 
 type Room struct {
-	players map[string]player
+	players map[ssh.Session]player
 }
 
 var room Room
@@ -28,7 +28,7 @@ var room Room
 func GameMiddleware() wish.Middleware {
 	if len(room.players) == 0 {
 		room = Room{
-			players: make(map[string]player),
+			players: make(map[ssh.Session]player),
 		}
 		fmt.Println("New room created")
 	}
@@ -49,7 +49,7 @@ func GameMiddleware() wish.Middleware {
 			return nil
 		}
 		if len(room.players) < 2 {
-			room.players[s.Context().SessionID()] = player{make(chan card)}
+			room.players[s] = player{make(chan card)}
 			fmt.Println("new player connected")
 		} else {
 			wish.Println(s, lipgloss.NewStyle().BorderStyle(lipgloss.DoubleBorder()).Padding(1).Align(lipgloss.Center).Render("\nToo many players online 💩\n"))
@@ -139,11 +139,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "ctrl+c", "q":
 			// reset cards played
-			// TODO: close session of all players
-			m.room = Room{
-				players: map[string]player{},
+			for sessionPlayer := range room.players {
+				wish.Println(sessionPlayer, "Goodbye 🚪👋")
+				sessionPlayer.Close()
 			}
-			m.session.Close()
+			m.room = Room{
+				players: map[ssh.Session]player{},
+			}
 			return m, tea.Quit
 		case "left", "h":
 			if m.cursor > 0 {
@@ -158,7 +160,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.cardPlayed = m.deck[m.cursor]
 
 			// add card to channel
-			(m.room.players[m.session.Context().SessionID()]).cardPlayed <- m.cardPlayed
+			(m.room.players[m.session]).cardPlayed <- m.cardPlayed
 
 			// remove card from deck
 			m.deck = append(m.deck[:m.cursor], m.deck[m.cursor+1:]...)
