@@ -145,9 +145,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				wish.Println(sessionPlayer, "Goodbye 🚪👋")
 				sessionPlayer.Close()
 			}
-			m.room = Room{
+			room = Room{
 				players: map[ssh.Session]player{},
 			}
+
 			return m, tea.Quit
 		case "left", "h":
 			if m.cursor > 0 {
@@ -158,6 +159,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.cursor++
 			}
 		case "enter", " ":
+			if len(m.room.players) < 2 {
+				return m, nil
+			}
+
 			// show card on the middle of the screen
 			m.cardPlayedByMe = m.deck[m.cursor]
 
@@ -197,7 +202,7 @@ func (m model) getOtherPlayer() (player, error) {
 			return p, nil
 		}
 	}
-	return player{}, errors.New("No player found")
+	return player{}, errors.New("no player found... 😿")
 }
 
 func (m model) View() string {
