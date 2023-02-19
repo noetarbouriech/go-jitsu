@@ -99,7 +99,7 @@ type card struct {
 }
 
 var (
-	symbols = []string{"❄️", "💧", "🔥"}
+	symbols = []string{"🧊", "💧", "🔥"}
 	colors  = []string{"#863ba4", "#58a7e5", "#eab942", "#93c47d"}
 )
 
