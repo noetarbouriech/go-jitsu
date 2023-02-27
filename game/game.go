@@ -64,25 +64,6 @@ func GameMiddleware() wish.Middleware {
 	return bm.MiddlewareWithProgramHandler(teaHandler, termenv.ANSI256)
 }
 
-var normalStyle = lipgloss.NewStyle().
-	BorderStyle(lipgloss.NormalBorder()).
-	BorderForeground(lipgloss.Color("63")).
-	Padding(2).
-	Align(lipgloss.Center).
-	Width(12).
-	Height(8).
-	Margin(0, 2)
-
-var selectedStyle = lipgloss.NewStyle().
-	Bold(true).
-	BorderStyle(lipgloss.ThickBorder()).
-	BorderForeground(lipgloss.Color("255")).
-	Padding(2).
-	Align(lipgloss.Center).
-	Width(13).
-	Height(9).
-	Margin(0, 2)
-
 type model struct {
 	termWidth         int
 	termHeight        int
@@ -208,13 +189,38 @@ func (m model) getOtherPlayer() (player, error) {
 func (m model) View() string {
 	var s string
 	var cards []string
+
+	if len(m.room.players) == 1 {
+		return lipgloss.Place(m.termWidth, m.termHeight, lipgloss.Center, lipgloss.Center, "⏳ Waiting for another player")
+	}
+
+	normalStyle := lipgloss.NewStyle().
+		BorderStyle(lipgloss.NormalBorder()).
+		BorderForeground(lipgloss.Color("63")).
+		Padding(2).
+		Align(lipgloss.Center).
+		Width(12).
+		Height(8).
+		Margin(0, 2)
+
+	selectedStyle := lipgloss.NewStyle().
+		Bold(true).
+		BorderStyle(lipgloss.ThickBorder()).
+		BorderForeground(lipgloss.Color("255")).
+		Padding(2).
+		Align(lipgloss.Center).
+		Width(13).
+		Height(9).
+		Margin(0, 2)
 	if m.cardPlayedByMe.value != "" {
 		selectedStyle.BorderForeground(lipgloss.Color(m.cardPlayedByMe.color))
 		s += "Card played:\n\n"
 		// display current card and other player card
 		playedCards := []string{
-			normalStyle.BorderForeground(lipgloss.Color(m.cardPlayedByMe.color)).Render(m.cardPlayedByMe.value + m.cardPlayedByMe.symbol),
-			normalStyle.BorderForeground(lipgloss.Color(m.cardPlayedByOther.color)).Render(m.cardPlayedByOther.value + m.cardPlayedByOther.symbol),
+			normalStyle.BorderForeground(lipgloss.Color(m.cardPlayedByMe.color)).
+				Render(m.cardPlayedByMe.value + m.cardPlayedByMe.symbol),
+			normalStyle.BorderForeground(lipgloss.Color(m.cardPlayedByOther.color)).
+				Render(m.cardPlayedByOther.value + m.cardPlayedByOther.symbol),
 		}
 		s += lipgloss.JoinHorizontal(lipgloss.Center, playedCards...)
 
