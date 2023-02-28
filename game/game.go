@@ -160,6 +160,17 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			m.cardPlayedByOther = <-otherPlayer.cardPlayed
 
+			// card duel
+			winner := cardDuel(m.cardPlayedByMe, m.cardPlayedByOther)
+			if winner.value == "" {
+				fmt.Println("draw")
+			}
+			if m.cardPlayedByMe == winner {
+				fmt.Println(m.session.User() + " has won")
+			} else {
+				fmt.Println("other player has won")
+			}
+
 			// remove card from deck
 			m.deck = append(m.deck[:m.cursor], m.deck[m.cursor+1:]...)
 
@@ -175,6 +186,38 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m model) playCard(cardPlayed card) {
 	m.room.players[m.session].cardPlayed <- cardPlayed
+}
+
+func cardDuel(c1 card, c2 card) card {
+	if c1.symbol == c2.symbol {
+		if c1.value == c2.value {
+			return card{}
+		} else if c1.value > c2.value {
+			return c1
+		}
+		return c2
+	}
+
+	if c1.symbol == "🧊" {
+		if c2.symbol == "💧" {
+			return c1
+		}
+		return c2
+	}
+	if c1.symbol == "💧" {
+		if c2.symbol == "🧊" {
+			return c2
+		}
+		return c1
+	}
+	if c1.symbol == "🔥" {
+		if c2.symbol == "💧" {
+			return c2
+		}
+		return c1
+	}
+
+	return card{}
 }
 
 func (m model) getOtherPlayer() (player, error) {
