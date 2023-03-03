@@ -240,13 +240,13 @@ func (m model) constructFlexboxUi() {
 	for _, c := range m.cardsWonByMe["🔥"] {
 		myCardHistory["🔥"] = append(myCardHistory["🔥"], histCardStyle.Background(lipgloss.Color(c)).Render("🔥"))
 	}
-	for _, c := range m.cardsWonByMe["💧"] {
+	for _, c := range m.cardsWonByOther["💧"] {
 		otherCardHistory["💧"] = append(otherCardHistory["💧"], histCardStyle.Background(lipgloss.Color(c)).Render("💧"))
 	}
-	for _, c := range m.cardsWonByMe["🧊"] {
+	for _, c := range m.cardsWonByOther["🧊"] {
 		otherCardHistory["🧊"] = append(otherCardHistory["🧊"], histCardStyle.Background(lipgloss.Color(c)).Render("🧊"))
 	}
-	for _, c := range m.cardsWonByMe["🔥"] {
+	for _, c := range m.cardsWonByOther["🔥"] {
 		otherCardHistory["🔥"] = append(otherCardHistory["🔥"], histCardStyle.Background(lipgloss.Color(c)).Render("🔥"))
 	}
 
