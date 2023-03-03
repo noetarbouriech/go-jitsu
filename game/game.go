@@ -73,6 +73,8 @@ type model struct {
 	deck              []card
 	cardPlayedByMe    card
 	cardPlayedByOther card
+	cardsWonByMe      map[string][]string
+	cardsWonByOther   map[string][]string
 }
 
 type card struct {
@@ -109,10 +111,14 @@ func initialModel(s ssh.Session, r Room) model {
 		deck:              deck,
 		cardPlayedByMe:    card{value: "", symbol: "", color: ""},
 		cardPlayedByOther: card{value: "", symbol: "", color: ""},
+		cardsWonByMe:      map[string][]string{},
+		cardsWonByOther:   map[string][]string{},
 	}
 }
 
 func (m model) Init() tea.Cmd {
+	m.cardsWonByMe = make(map[string][]string)
+	m.cardsWonByOther = make(map[string][]string)
 	return nil
 }
 
@@ -167,9 +173,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			if m.cardPlayedByMe == winner {
 				fmt.Println(m.session.User() + " has won")
+				m.cardsWonByMe[m.cardPlayedByMe.symbol] = append(m.cardsWonByMe[m.cardPlayedByMe.symbol], m.cardPlayedByMe.color)
 			} else {
 				fmt.Println("other player has won")
+				m.cardsWonByOther[m.cardPlayedByOther.symbol] = append(m.cardsWonByOther[m.cardPlayedByOther.symbol], m.cardPlayedByOther.color)
 			}
+			fmt.Println(m.session.User(), m.cardsWonByMe)
 
 			// remove card from deck
 			m.deck = append(m.deck[:m.cursor], m.deck[m.cursor+1:]...)
@@ -177,7 +186,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// put cursor back to 0
 			m.cursor = 0
 
-			// TODO: add new card to deck
+			// add new card to deck
+			m.deck = append(m.deck, buildCard())
 		}
 	}
 
@@ -236,7 +246,15 @@ func (m model) View() string {
 	if len(m.room.players) == 1 {
 		return lipgloss.Place(m.termWidth, m.termHeight, lipgloss.Center, lipgloss.Center, "⏳ Waiting for another player")
 	}
-
+	for _, c := range m.cardsWonByMe["💧"] {
+		s += lipgloss.NewStyle().Background(lipgloss.Color(c)).Render("💧\n")
+	}
+	for _, c := range m.cardsWonByMe["🧊"] {
+		s += lipgloss.NewStyle().Background(lipgloss.Color(c)).Render("🧊\n")
+	}
+	for _, c := range m.cardsWonByMe["🔥"] {
+		s += lipgloss.NewStyle().Background(lipgloss.Color(c)).Render("🔥\n")
+	}
 	normalStyle := lipgloss.NewStyle().
 		BorderStyle(lipgloss.NormalBorder()).
 		BorderForeground(lipgloss.Color("63")).
@@ -280,7 +298,6 @@ func (m model) View() string {
 			cards = append(cards, normalStyle.Render(choice.value+choice.symbol))
 		}
 	}
-
 	s += lipgloss.JoinHorizontal(lipgloss.Center, cards...)
 	return lipgloss.Place(m.termWidth, m.termHeight, lipgloss.Center, lipgloss.Center, s)
 }
