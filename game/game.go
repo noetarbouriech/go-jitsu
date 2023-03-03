@@ -10,6 +10,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 
+	"github.com/76creates/stickers"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/ssh"
 	"github.com/charmbracelet/wish"
@@ -68,6 +69,7 @@ type model struct {
 	termWidth         int
 	termHeight        int
 	session           ssh.Session
+	flexBox           *stickers.FlexBox
 	room              Room
 	cursor            int
 	deck              []card
@@ -102,10 +104,11 @@ func initialModel(s ssh.Session, r Room) model {
 	deck := []card{buildCard(), buildCard(), buildCard(), buildCard(), buildCard()}
 	pty, _, _ := s.Pty()
 
-	return model{
+	m := model{
 		termWidth:         pty.Window.Width,
 		termHeight:        pty.Window.Height,
 		session:           s,
+		flexBox:           stickers.NewFlexBox(0, 0),
 		room:              r,
 		cursor:            0,
 		deck:              deck,
@@ -114,6 +117,8 @@ func initialModel(s ssh.Session, r Room) model {
 		cardsWonByMe:      map[string][]string{},
 		cardsWonByOther:   map[string][]string{},
 	}
+
+	return m
 }
 
 func (m model) Init() tea.Cmd {
@@ -191,7 +196,135 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 
+	m.flexBox.SetWidth(m.termWidth)
+	m.flexBox.SetHeight(m.termHeight)
+
 	return m, nil
+}
+
+func (m model) constructFlexboxUi() {
+	histCardStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#000"))
+	cardStyle := lipgloss.NewStyle().
+		BorderStyle(lipgloss.NormalBorder()).
+		BorderForeground(lipgloss.Color("63")).
+		Padding(2).
+		Align(lipgloss.Center).
+		Width(12).
+		Height(8)
+	selectedStyle := lipgloss.NewStyle().
+		BorderForeground(lipgloss.Color("#fff")).
+		BorderForeground(lipgloss.Color("63")).
+		Padding(2).
+		Align(lipgloss.Center).
+		Width(12).
+		Height(8).
+		BorderStyle(lipgloss.DoubleBorder())
+
+	// Construct hist cards
+	myCardHistory := map[string][]string{
+		"💧": make([]string, 0),
+		"🧊": make([]string, 0),
+		"🔥": make([]string, 0),
+	}
+	otherCardHistory := map[string][]string{
+		"💧": make([]string, 0),
+		"🧊": make([]string, 0),
+		"🔥": make([]string, 0),
+	}
+	for _, c := range m.cardsWonByMe["💧"] {
+		myCardHistory["💧"] = append(myCardHistory["💧"], histCardStyle.Background(lipgloss.Color(c)).Render("💧"))
+	}
+	for _, c := range m.cardsWonByMe["🧊"] {
+		myCardHistory["🧊"] = append(myCardHistory["🧊"], histCardStyle.Background(lipgloss.Color(c)).Render("🧊"))
+	}
+	for _, c := range m.cardsWonByMe["🔥"] {
+		myCardHistory["🔥"] = append(myCardHistory["🔥"], histCardStyle.Background(lipgloss.Color(c)).Render("🔥"))
+	}
+	for _, c := range m.cardsWonByMe["💧"] {
+		otherCardHistory["💧"] = append(otherCardHistory["💧"], histCardStyle.Background(lipgloss.Color(c)).Render("💧"))
+	}
+	for _, c := range m.cardsWonByMe["🧊"] {
+		otherCardHistory["🧊"] = append(otherCardHistory["🧊"], histCardStyle.Background(lipgloss.Color(c)).Render("🧊"))
+	}
+	for _, c := range m.cardsWonByMe["🔥"] {
+		otherCardHistory["🔥"] = append(otherCardHistory["🔥"], histCardStyle.Background(lipgloss.Color(c)).Render("🔥"))
+	}
+
+	rows := []*stickers.FlexBoxRow{
+		m.flexBox.NewRow().AddCells(
+			[]*stickers.FlexBoxCell{
+				stickers.NewFlexBoxCell(1, 1).
+					SetStyle(lipgloss.NewStyle().MarginRight(5).Align(lipgloss.Center, lipgloss.Top)).
+					SetContent("Hist. 'nous'\n" + lipgloss.JoinVertical(0,
+						getColumnCardHistory(myCardHistory["💧"]),
+						getColumnCardHistory(myCardHistory["🧊"]),
+						getColumnCardHistory(myCardHistory["🔥"]),
+					)),
+				stickers.NewFlexBoxCell(1, 1).
+					SetStyle(lipgloss.NewStyle().MarginLeft(5).Align(lipgloss.Center, lipgloss.Top)).
+					SetContent("Hist. 'adversaire'\n" + lipgloss.JoinVertical(0,
+						getColumnCardHistory(otherCardHistory["💧"]),
+						getColumnCardHistory(otherCardHistory["🧊"]),
+						getColumnCardHistory(otherCardHistory["🔥"]),
+					)),
+			},
+		),
+	}
+
+	// Arena
+	myPlayedCard := ""
+	otherPlayedCard := ""
+	if m.cardPlayedByMe.value != "" {
+		myPlayedCard = cardStyle.
+			BorderForeground(lipgloss.Color(m.cardPlayedByMe.color)).
+			Render(m.cardPlayedByMe.value + m.cardPlayedByMe.symbol)
+		otherPlayedCard = cardStyle.
+			BorderForeground(lipgloss.Color(m.cardPlayedByOther.color)).
+			Render(m.cardPlayedByOther.value + m.cardPlayedByOther.symbol)
+	}
+	rows = append(rows,
+		m.flexBox.NewRow().AddCells(
+			[]*stickers.FlexBoxCell{
+				stickers.NewFlexBoxCell(1, 4).
+					SetStyle(lipgloss.NewStyle().AlignHorizontal(lipgloss.Right).AlignVertical(lipgloss.Center)).
+					SetMinWidth(25).
+					SetContent(lipgloss.JoinVertical(lipgloss.Center, "Nous", myPlayedCard)),
+				stickers.NewFlexBoxCell(1, 4).
+					SetStyle(lipgloss.NewStyle().AlignHorizontal(lipgloss.Left).AlignVertical(lipgloss.Center)).
+					SetMinWidth(25).
+					SetContent(lipgloss.JoinVertical(lipgloss.Center, "Adversaire", otherPlayedCard)),
+			},
+		),
+	)
+
+	// Construct deck cards
+	var cards []string
+	for i, choice := range m.deck {
+		if i == m.cursor {
+			cards = append(cards, selectedStyle.BorderForeground(lipgloss.Color(choice.color)).Render(choice.value+choice.symbol))
+		} else {
+			cards = append(cards, cardStyle.BorderForeground(lipgloss.Color(choice.color)).Render(choice.value+choice.symbol))
+		}
+	}
+	rows = append(rows,
+		m.flexBox.NewRow().AddCells(
+			[]*stickers.FlexBoxCell{
+				stickers.NewFlexBoxCell(1, 5).
+					SetStyle(lipgloss.NewStyle().AlignHorizontal(lipgloss.Center).AlignVertical(lipgloss.Center)).
+					SetMinWidth(cardStyle.GetWidth() * 5).
+					SetContent(lipgloss.JoinVertical(lipgloss.Left,
+						"Deck",
+						lipgloss.JoinHorizontal(lipgloss.Left, cards...)),
+					),
+			},
+		),
+	)
+
+	m.flexBox.SetRows(rows)
+}
+
+func getColumnCardHistory(historyCards []string) string {
+	return lipgloss.JoinHorizontal(0, historyCards...)
 }
 
 func (m model) playCard(cardPlayed card) {
@@ -240,66 +373,13 @@ func (m model) getOtherPlayer() (player, error) {
 }
 
 func (m model) View() string {
-	var s string
-	var cards []string
-
 	if len(m.room.players) == 1 {
 		return lipgloss.Place(m.termWidth, m.termHeight, lipgloss.Center, lipgloss.Center, "⏳ Waiting for another player")
 	}
-	for _, c := range m.cardsWonByMe["💧"] {
-		s += lipgloss.NewStyle().Background(lipgloss.Color(c)).Render("💧\n")
-	}
-	for _, c := range m.cardsWonByMe["🧊"] {
-		s += lipgloss.NewStyle().Background(lipgloss.Color(c)).Render("🧊\n")
-	}
-	for _, c := range m.cardsWonByMe["🔥"] {
-		s += lipgloss.NewStyle().Background(lipgloss.Color(c)).Render("🔥\n")
-	}
-	normalStyle := lipgloss.NewStyle().
-		BorderStyle(lipgloss.NormalBorder()).
-		BorderForeground(lipgloss.Color("63")).
-		Padding(2).
-		Align(lipgloss.Center).
-		Width(12).
-		Height(8).
-		Margin(0, 2)
 
-	selectedStyle := lipgloss.NewStyle().
-		Bold(true).
-		BorderStyle(lipgloss.ThickBorder()).
-		BorderForeground(lipgloss.Color("255")).
-		Padding(2).
-		Align(lipgloss.Center).
-		Width(13).
-		Height(9).
-		Margin(0, 2)
-	if m.cardPlayedByMe.value != "" {
-		selectedStyle.BorderForeground(lipgloss.Color(m.cardPlayedByMe.color))
-		s += "Card played:\n\n"
-		// display current card and other player card
-		playedCards := []string{
-			normalStyle.BorderForeground(lipgloss.Color(m.cardPlayedByMe.color)).
-				Render(m.cardPlayedByMe.value + m.cardPlayedByMe.symbol),
-			normalStyle.BorderForeground(lipgloss.Color(m.cardPlayedByOther.color)).
-				Render(m.cardPlayedByOther.value + m.cardPlayedByOther.symbol),
-		}
-		s += lipgloss.JoinHorizontal(lipgloss.Center, playedCards...)
+	m.constructFlexboxUi()
 
-	}
-	s += "\nWhat card to play?\n"
-
-	for i, choice := range m.deck {
-		selectedStyle.BorderForeground(lipgloss.Color(rune(255)))
-		normalStyle.BorderForeground(lipgloss.Color(choice.color))
-
-		if i == m.cursor {
-			cards = append(cards, selectedStyle.Render(choice.value+choice.symbol))
-		} else {
-			cards = append(cards, normalStyle.Render(choice.value+choice.symbol))
-		}
-	}
-	s += lipgloss.JoinHorizontal(lipgloss.Center, cards...)
-	return lipgloss.Place(m.termWidth, m.termHeight, lipgloss.Center, lipgloss.Center, s)
+	return m.flexBox.Render()
 }
 
 func TeaHandler(s ssh.Session, r Room) (tea.Model, []tea.ProgramOption) {

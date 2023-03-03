@@ -3,6 +3,7 @@ module github.com/noetarbouriech/go-jitsu
 go 1.19
 
 require (
+	github.com/76creates/stickers v0.0.0-20230121000757-d6bf5dc8ab6b
 	github.com/charmbracelet/bubbletea v0.23.1
 	github.com/charmbracelet/lipgloss v0.6.0
 	github.com/charmbracelet/ssh v0.0.0-20221117183211-483d43d97103

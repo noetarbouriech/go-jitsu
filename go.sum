@@ -1,3 +1,5 @@
+github.com/76creates/stickers v0.0.0-20230121000757-d6bf5dc8ab6b h1:FJJZQtpNygTX4SlVutmjnU7W832+uVBq+ORQJo9CGgw=
+github.com/76creates/stickers v0.0.0-20230121000757-d6bf5dc8ab6b/go.mod h1:OnGyCp42wnTwuZv2Ewh4dkvMuaiWMoH4I80yU2IJVmI=
 github.com/anmitsu/go-shlex v0.0.0-20200514113438-38f4b401e2be h1:9AeTilPcZAjCFIImctFaOjnTIavg87rW78vTPkQqLI8=
 github.com/anmitsu/go-shlex v0.0.0-20200514113438-38f4b401e2be/go.mod h1:ySMOLuWl6zY27l47sB3qLNK6tF2fkHG55UZxx8oIVo4=
 github.com/aymanbagabas/go-osc52 v1.0.3/go.mod h1:zT8H+Rk4VSabYN90pWyugflM3ZhpTZNC7cASDfUCdT4=
