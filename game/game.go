@@ -19,6 +19,7 @@ import (
 )
 
 type player struct {
+	username   string
 	cardPlayed chan card
 }
 
@@ -52,7 +53,10 @@ func GameMiddleware() wish.Middleware {
 			return nil
 		}
 		if len(room.players) < 2 {
-			room.players[s] = player{make(chan card)}
+			room.players[s] = player{
+				s.User(),
+				make(chan card),
+			}
 			fmt.Println("new player connected")
 		} else {
 			wish.Println(s, lipgloss.NewStyle().BorderStyle(lipgloss.DoubleBorder()).Padding(1).Align(lipgloss.Center).Render("\nToo many players online 💩\n"))
@@ -220,6 +224,13 @@ func (m model) constructFlexboxUi() {
 		Height(8).
 		BorderStyle(lipgloss.DoubleBorder())
 
+	usernamePlayer := m.session.User()
+	usernameOther := "Opponent"
+	opponent, error := m.getOtherPlayer()
+	if error == nil {
+		usernameOther = opponent.username
+	}
+
 	// Construct hist cards
 	myCardHistory := map[string][]string{
 		"💧": make([]string, 0),
@@ -255,14 +266,14 @@ func (m model) constructFlexboxUi() {
 			[]*stickers.FlexBoxCell{
 				stickers.NewFlexBoxCell(1, 1).
 					SetStyle(lipgloss.NewStyle().MarginRight(5).Align(lipgloss.Center, lipgloss.Top)).
-					SetContent("Hist. 'nous'\n" + lipgloss.JoinVertical(0,
+					SetContent(fmt.Sprintf("Hist. '%s' (me)\n", usernamePlayer) + lipgloss.JoinVertical(0,
 						getColumnCardHistory(myCardHistory["💧"]),
 						getColumnCardHistory(myCardHistory["🧊"]),
 						getColumnCardHistory(myCardHistory["🔥"]),
 					)),
 				stickers.NewFlexBoxCell(1, 1).
 					SetStyle(lipgloss.NewStyle().MarginLeft(5).Align(lipgloss.Center, lipgloss.Top)).
-					SetContent("Hist. 'adversaire'\n" + lipgloss.JoinVertical(0,
+					SetContent(fmt.Sprintf("Hist. '%s'\n", usernameOther) + lipgloss.JoinVertical(0,
 						getColumnCardHistory(otherCardHistory["💧"]),
 						getColumnCardHistory(otherCardHistory["🧊"]),
 						getColumnCardHistory(otherCardHistory["🔥"]),
@@ -281,21 +292,26 @@ func (m model) constructFlexboxUi() {
 		otherPlayedCard = cardStyle.
 			BorderForeground(lipgloss.Color(m.cardPlayedByOther.color)).
 			Render(m.cardPlayedByOther.value + m.cardPlayedByOther.symbol)
+
+		rows = append(rows,
+			m.flexBox.NewRow().AddCells(
+				[]*stickers.FlexBoxCell{
+					stickers.NewFlexBoxCell(1, 4).
+						SetStyle(lipgloss.NewStyle().AlignHorizontal(lipgloss.Right).AlignVertical(lipgloss.Center)).
+						SetContent(lipgloss.JoinVertical(lipgloss.Center, fmt.Sprintf("%s (me)", usernamePlayer), myPlayedCard)),
+					stickers.NewFlexBoxCell(1, 4).
+						SetStyle(lipgloss.NewStyle().AlignHorizontal(lipgloss.Left).AlignVertical(lipgloss.Center)).
+						SetContent(lipgloss.JoinVertical(lipgloss.Center, usernameOther, otherPlayedCard)),
+				},
+			),
+		)
+	} else {
+		rows = append(rows,
+			m.flexBox.NewRow().AddCells(
+				[]*stickers.FlexBoxCell{stickers.NewFlexBoxCell(1, 4), stickers.NewFlexBoxCell(1, 4)},
+			),
+		)
 	}
-	rows = append(rows,
-		m.flexBox.NewRow().AddCells(
-			[]*stickers.FlexBoxCell{
-				stickers.NewFlexBoxCell(1, 4).
-					SetStyle(lipgloss.NewStyle().AlignHorizontal(lipgloss.Right).AlignVertical(lipgloss.Center)).
-					SetMinWidth(25).
-					SetContent(lipgloss.JoinVertical(lipgloss.Center, "Nous", myPlayedCard)),
-				stickers.NewFlexBoxCell(1, 4).
-					SetStyle(lipgloss.NewStyle().AlignHorizontal(lipgloss.Left).AlignVertical(lipgloss.Center)).
-					SetMinWidth(25).
-					SetContent(lipgloss.JoinVertical(lipgloss.Center, "Adversaire", otherPlayedCard)),
-			},
-		),
-	)
 
 	// Construct deck cards
 	var cards []string
