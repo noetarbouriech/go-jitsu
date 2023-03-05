@@ -81,6 +81,7 @@ type model struct {
 	cardPlayedByOther card
 	cardsWonByMe      map[string][]string
 	cardsWonByOther   map[string][]string
+	winner            string
 }
 
 type card struct {
@@ -120,6 +121,7 @@ func initialModel(s ssh.Session, r Room) model {
 		cardPlayedByOther: card{value: "", symbol: "", color: ""},
 		cardsWonByMe:      map[string][]string{},
 		cardsWonByOther:   map[string][]string{},
+		winner:            "",
 	}
 
 	return m
@@ -132,6 +134,7 @@ func (m model) Init() tea.Cmd {
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
@@ -189,6 +192,16 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			fmt.Println(m.session.User(), m.cardsWonByMe)
 
+			// Check if one of the player won
+			if isWinnedFromHist(m.cardsWonByMe) {
+				m.winner = "👑 you"
+			}
+			if isWinnedFromHist(m.cardsWonByOther) {
+				opponent, _ := m.getOtherPlayer()
+				m.winner = "😿 " + opponent.username
+			}
+			fmt.Println(isWinnedFromHist(m.cardsWonByMe))
+
 			// remove card from deck
 			m.deck = append(m.deck[:m.cursor], m.deck[m.cursor+1:]...)
 
@@ -204,6 +217,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	m.flexBox.SetHeight(m.termHeight)
 
 	return m, nil
+
 }
 
 func (m model) constructFlexboxUi() {
@@ -233,32 +247,34 @@ func (m model) constructFlexboxUi() {
 
 	// Construct hist cards
 	myCardHistory := map[string][]string{
-		"💧": make([]string, 0),
-		"🧊": make([]string, 0),
-		"🔥": make([]string, 0),
+		"💧": {"💧"},
+		"🧊": {"🧊"},
+		"🔥": {"🔥"},
 	}
+
 	otherCardHistory := map[string][]string{
-		"💧": make([]string, 0),
-		"🧊": make([]string, 0),
-		"🔥": make([]string, 0),
+		"💧": {"💧"},
+		"🧊": {"🧊"},
+		"🔥": {"🔥"},
 	}
+
 	for _, c := range m.cardsWonByMe["💧"] {
-		myCardHistory["💧"] = append(myCardHistory["💧"], histCardStyle.Background(lipgloss.Color(c)).Render("💧"))
+		myCardHistory["💧"] = append(myCardHistory["💧"], histCardStyle.Background(lipgloss.Color(c)).Render("  "))
 	}
 	for _, c := range m.cardsWonByMe["🧊"] {
-		myCardHistory["🧊"] = append(myCardHistory["🧊"], histCardStyle.Background(lipgloss.Color(c)).Render("🧊"))
+		myCardHistory["🧊"] = append(myCardHistory["🧊"], histCardStyle.Background(lipgloss.Color(c)).Render("  "))
 	}
 	for _, c := range m.cardsWonByMe["🔥"] {
-		myCardHistory["🔥"] = append(myCardHistory["🔥"], histCardStyle.Background(lipgloss.Color(c)).Render("🔥"))
+		myCardHistory["🔥"] = append(myCardHistory["🔥"], histCardStyle.Background(lipgloss.Color(c)).Render("  "))
 	}
 	for _, c := range m.cardsWonByOther["💧"] {
-		otherCardHistory["💧"] = append(otherCardHistory["💧"], histCardStyle.Background(lipgloss.Color(c)).Render("💧"))
+		otherCardHistory["💧"] = append(otherCardHistory["💧"], histCardStyle.Background(lipgloss.Color(c)).Render("  "))
 	}
 	for _, c := range m.cardsWonByOther["🧊"] {
-		otherCardHistory["🧊"] = append(otherCardHistory["🧊"], histCardStyle.Background(lipgloss.Color(c)).Render("🧊"))
+		otherCardHistory["🧊"] = append(otherCardHistory["🧊"], histCardStyle.Background(lipgloss.Color(c)).Render("  "))
 	}
 	for _, c := range m.cardsWonByOther["🔥"] {
-		otherCardHistory["🔥"] = append(otherCardHistory["🔥"], histCardStyle.Background(lipgloss.Color(c)).Render("🔥"))
+		otherCardHistory["🔥"] = append(otherCardHistory["🔥"], histCardStyle.Background(lipgloss.Color(c)).Render("  "))
 	}
 
 	rows := []*stickers.FlexBoxRow{
@@ -270,6 +286,7 @@ func (m model) constructFlexboxUi() {
 						getColumnCardHistory(myCardHistory["💧"]),
 						getColumnCardHistory(myCardHistory["🧊"]),
 						getColumnCardHistory(myCardHistory["🔥"]),
+						"\n",
 					)),
 				stickers.NewFlexBoxCell(1, 1).
 					SetStyle(lipgloss.NewStyle().MarginLeft(5).Align(lipgloss.Center, lipgloss.Top)).
@@ -277,6 +294,7 @@ func (m model) constructFlexboxUi() {
 						getColumnCardHistory(otherCardHistory["💧"]),
 						getColumnCardHistory(otherCardHistory["🧊"]),
 						getColumnCardHistory(otherCardHistory["🔥"]),
+						"\n",
 					)),
 			},
 		),
@@ -354,6 +372,7 @@ func cardDuel(c1 card, c2 card) card {
 		} else if c1.value > c2.value {
 			return c1
 		}
+		fmt.Println("c2")
 		return c2
 	}
 
@@ -379,6 +398,56 @@ func cardDuel(c1 card, c2 card) card {
 	return card{}
 }
 
+func isWinnedFromHist(historyCards map[string][]string) bool {
+	fmt.Println("ajshgdsjahgdjhasgdjhasg")
+
+	// we create a new array without color doublons and check if len == 3 meaning we won
+	for _, value := range historyCards {
+		clearedLine := removeDoublons(value)
+		if len(clearedLine) == 0 {
+			// it's impossible to win if one of the line is empty
+			return false
+		}
+		if len(clearedLine) == 3 {
+			return true
+		}
+	}
+
+	// for each round we store a list of element we have already seen and compare the next line elements to it to check if it's a new unique one
+
+	uniqueElems := make(map[string]bool)
+
+	// for each emoji line
+	for _, line := range historyCards {
+		// for each color element
+		for _, elem := range line {
+			// if the element is not in the list
+			if !uniqueElems[elem] {
+				// we add it
+				uniqueElems[elem] = true
+				break
+			} else if elem == line[len(line)-1] {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+func removeDoublons(array []string) []string {
+	uniqueMap := make(map[string]bool)
+	for _, elem := range array {
+		uniqueMap[elem] = true
+	}
+
+	result := make([]string, 0, len(uniqueMap))
+	for key := range uniqueMap {
+		result = append(result, key)
+	}
+	return result
+}
+
 func (m model) getOtherPlayer() (player, error) {
 	for _, p := range m.room.players {
 		if m.room.players[m.session] != p {
@@ -393,7 +462,13 @@ func (m model) View() string {
 		return lipgloss.Place(m.termWidth, m.termHeight, lipgloss.Center, lipgloss.Center, "⏳ Waiting for another player")
 	}
 
-	m.constructFlexboxUi()
+	if m.winner == "" {
+		m.constructFlexboxUi()
+	}
+	if m.winner != "" {
+
+		return lipgloss.Place(m.termWidth, m.termHeight, lipgloss.Center, lipgloss.Center, m.winner+" won")
+	}
 
 	return m.flexBox.Render()
 }
