@@ -179,11 +179,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.cardPlayedByOther = <-otherPlayer.cardPlayed
 
 			// card duel
-			winner := cardDuel(m.cardPlayedByMe, m.cardPlayedByOther)
+			winner := cardDuel(m.cardPlayedByMe, m.cardPlayedByOther, m)
 			if winner.value == "" {
 				fmt.Println("draw")
-			}
-			if m.cardPlayedByMe == winner {
+			} else if m.cardPlayedByMe == winner {
 				fmt.Println(m.session.User() + " has won")
 				m.cardsWonByMe[m.cardPlayedByMe.symbol] = append(m.cardsWonByMe[m.cardPlayedByMe.symbol], m.cardPlayedByMe.color)
 			} else {
@@ -280,7 +279,7 @@ func (m model) constructFlexboxUi() {
 	rows := []*stickers.FlexBoxRow{
 		m.flexBox.NewRow().AddCells(
 			[]*stickers.FlexBoxCell{
-				stickers.NewFlexBoxCell(1, 1).
+				stickers.NewFlexBoxCell(1, 3).
 					SetStyle(lipgloss.NewStyle().MarginRight(5).Align(lipgloss.Center, lipgloss.Top)).
 					SetContent(fmt.Sprintf("Hist. '%s' (me)\n", usernamePlayer) + lipgloss.JoinVertical(0,
 						getColumnCardHistory(myCardHistory["💧"]),
@@ -288,7 +287,7 @@ func (m model) constructFlexboxUi() {
 						getColumnCardHistory(myCardHistory["🔥"]),
 						"\n",
 					)),
-				stickers.NewFlexBoxCell(1, 1).
+				stickers.NewFlexBoxCell(1, 3).
 					SetStyle(lipgloss.NewStyle().MarginLeft(5).Align(lipgloss.Center, lipgloss.Top)).
 					SetContent(fmt.Sprintf("Hist. '%s'\n", usernameOther) + lipgloss.JoinVertical(0,
 						getColumnCardHistory(otherCardHistory["💧"]),
@@ -314,10 +313,10 @@ func (m model) constructFlexboxUi() {
 		rows = append(rows,
 			m.flexBox.NewRow().AddCells(
 				[]*stickers.FlexBoxCell{
-					stickers.NewFlexBoxCell(1, 4).
+					stickers.NewFlexBoxCell(1, 5).
 						SetStyle(lipgloss.NewStyle().AlignHorizontal(lipgloss.Right).AlignVertical(lipgloss.Center)).
 						SetContent(lipgloss.JoinVertical(lipgloss.Center, fmt.Sprintf("%s (me)", usernamePlayer), myPlayedCard)),
-					stickers.NewFlexBoxCell(1, 4).
+					stickers.NewFlexBoxCell(1, 5).
 						SetStyle(lipgloss.NewStyle().AlignHorizontal(lipgloss.Left).AlignVertical(lipgloss.Center)).
 						SetContent(lipgloss.JoinVertical(lipgloss.Center, usernameOther, otherPlayedCard)),
 				},
@@ -365,15 +364,22 @@ func (m model) playCard(cardPlayed card) {
 	m.room.players[m.session].cardPlayed <- cardPlayed
 }
 
-func cardDuel(c1 card, c2 card) card {
+func cardDuel(c1 card, c2 card, m model) card {
+
 	if c1.symbol == c2.symbol {
-		if c1.value == c2.value {
+		c1Val, _ := strconv.Atoi(c1.value)
+		c2Val, _ := strconv.Atoi(c2.value)
+
+		if c1Val == c2Val {
 			return card{}
-		} else if c1.value > c2.value {
+		} else if c1Val > c2Val {
+			fmt.Println("c1 is winner", c1)
 			return c1
+		} else {
+			fmt.Println("c2 wins")
+			return c2
 		}
-		fmt.Println("c2")
-		return c2
+
 	}
 
 	if c1.symbol == "🧊" {
@@ -399,7 +405,6 @@ func cardDuel(c1 card, c2 card) card {
 }
 
 func isWinnedFromHist(historyCards map[string][]string) bool {
-	fmt.Println("ajshgdsjahgdjhasgdjhasg")
 
 	// we create a new array without color doublons and check if len == 3 meaning we won
 	for _, value := range historyCards {
@@ -415,24 +420,20 @@ func isWinnedFromHist(historyCards map[string][]string) bool {
 
 	// for each round we store a list of element we have already seen and compare the next line elements to it to check if it's a new unique one
 
-	uniqueElems := make(map[string]bool)
-
+	// TODO
 	// for each emoji line
-	for _, line := range historyCards {
-		// for each color element
-		for _, elem := range line {
-			// if the element is not in the list
-			if !uniqueElems[elem] {
-				// we add it
-				uniqueElems[elem] = true
-				break
-			} else if elem == line[len(line)-1] {
-				return true
+
+	for _, waterItem := range historyCards["💧"] {
+		for _, fireItem := range historyCards["🔥"] {
+			for _, iceItem := range historyCards["🧊"] {
+				if waterItem != fireItem && fireItem != iceItem && iceItem != waterItem {
+					return true
+				}
 			}
 		}
 	}
-
 	return false
+
 }
 
 func removeDoublons(array []string) []string {
@@ -461,6 +462,8 @@ func (m model) View() string {
 	if len(m.room.players) == 1 {
 		return lipgloss.Place(m.termWidth, m.termHeight, lipgloss.Center, lipgloss.Center, "⏳ Waiting for another player")
 	}
+
+	m.constructFlexboxUi()
 
 	if m.winner == "" {
 		m.constructFlexboxUi()
