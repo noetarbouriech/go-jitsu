@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/charmbracelet/glamour"
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/76creates/stickers"
@@ -17,6 +18,19 @@ import (
 	bm "github.com/charmbracelet/wish/bubbletea"
 	"github.com/muesli/termenv"
 )
+
+const rules = `
+# Rules of Card-Jitsu
+Each turn, the player picked a card from a deck of 5 randomly drawn cards. Each card has its own point value and an element.
+- 🔥 beats 🧊.
+- 🧊 beats 💧.
+- 💧 beats 🔥.
+- If same element, the highest number win.
+- If same element and same number, it is considered a tie.
+- You have to get different color of each element OR three different colors of the same element to win the game.
+
+> To leave this page, press **q**
+`
 
 type player struct {
 	username   string
@@ -82,6 +96,7 @@ type model struct {
 	cardsWonByMe      map[string][]string
 	cardsWonByOther   map[string][]string
 	winner            string
+	helpMenuOpen      bool
 }
 
 type card struct {
@@ -122,6 +137,7 @@ func initialModel(s ssh.Session, r Room) model {
 		cardsWonByMe:      map[string][]string{},
 		cardsWonByOther:   map[string][]string{},
 		winner:            "",
+		helpMenuOpen:      false,
 	}
 
 	return m
@@ -137,7 +153,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
+		case "?":
+			m.helpMenuOpen = true
 		case "ctrl+c", "q":
+			if m.helpMenuOpen {
+				m.helpMenuOpen = false
+				return m, nil
+			}
 			// reset cards played
 			for sessionPlayer := range room.players {
 				wish.Println(sessionPlayer, "Goodbye 🚪👋")
@@ -457,15 +479,20 @@ func (m model) View() string {
 		return lipgloss.Place(m.termWidth, m.termHeight, lipgloss.Center, lipgloss.Center, "⏳ Waiting for another player")
 	}
 
-	m.constructFlexboxUi()
-
-	if m.winner == "" {
+	if !m.helpMenuOpen {
 		m.constructFlexboxUi()
-	} else {
-		return lipgloss.Place(m.termWidth, m.termHeight, lipgloss.Center, lipgloss.Center, m.winner+" won")
-	}
 
-	return m.flexBox.Render()
+		if m.winner == "" {
+			m.constructFlexboxUi()
+		} else {
+			return lipgloss.Place(m.termWidth, m.termHeight, lipgloss.Center, lipgloss.Center, m.winner+" won")
+		}
+
+		return m.flexBox.Render()
+	} else {
+		out, _ := glamour.Render(rules, "dark")
+		return out
+	}
 }
 
 func TeaHandler(s ssh.Session, r Room) (tea.Model, []tea.ProgramOption) {

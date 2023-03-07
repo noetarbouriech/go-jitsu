@@ -19,6 +19,7 @@ import (
 func InitServer(host string, port int) {
 	server, err := wish.NewServer(
 		wish.WithAddress(fmt.Sprintf("%s:%d", host, port)),
+		wish.WithHostKeyPath(".ssh/term_info_ed25519"),
 		wish.WithMiddleware(
 			game.GameMiddleware(),
 			logging.Middleware(),
