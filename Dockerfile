@@ -14,7 +14,7 @@ COPY *.go ./
 RUN go build -o ./go-jitsu
 
 # STAGE 2: run binary
-FROM golang:1.20-alpine AS run-stage
+FROM scratch AS run-stage
 
 WORKDIR /app
 

@@ -134,7 +134,6 @@ func (m model) Init() tea.Cmd {
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
@@ -216,7 +215,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	m.flexBox.SetHeight(m.termHeight)
 
 	return m, nil
-
 }
 
 func (m model) constructFlexboxUi() {
@@ -334,7 +332,10 @@ func (m model) constructFlexboxUi() {
 	var cards []string
 	for i, choice := range m.deck {
 		if i == m.cursor {
-			cards = append(cards, selectedStyle.BorderForeground(lipgloss.Color(choice.color)).Render(choice.value+choice.symbol))
+			cards = append(
+				cards,
+				selectedStyle.BorderForeground(lipgloss.Color(choice.color)).Render(choice.value+choice.symbol),
+			)
 		} else {
 			cards = append(cards, cardStyle.BorderForeground(lipgloss.Color(choice.color)).Render(choice.value+choice.symbol))
 		}
@@ -365,7 +366,6 @@ func (m model) playCard(cardPlayed card) {
 }
 
 func cardDuel(c1 card, c2 card, m model) card {
-
 	if c1.symbol == c2.symbol {
 		c1Val, _ := strconv.Atoi(c1.value)
 		c2Val, _ := strconv.Atoi(c2.value)
@@ -405,7 +405,6 @@ func cardDuel(c1 card, c2 card, m model) card {
 }
 
 func isWinnedFromHist(historyCards map[string][]string) bool {
-
 	// we create a new array without color doublons and check if len == 3 meaning we won
 	for _, value := range historyCards {
 		clearedLine := removeDoublons(value)
@@ -419,10 +418,6 @@ func isWinnedFromHist(historyCards map[string][]string) bool {
 	}
 
 	// for each round we store a list of element we have already seen and compare the next line elements to it to check if it's a new unique one
-
-	// TODO
-	// for each emoji line
-
 	for _, waterItem := range historyCards["💧"] {
 		for _, fireItem := range historyCards["🔥"] {
 			for _, iceItem := range historyCards["🧊"] {
@@ -433,7 +428,6 @@ func isWinnedFromHist(historyCards map[string][]string) bool {
 		}
 	}
 	return false
-
 }
 
 func removeDoublons(array []string) []string {
@@ -467,9 +461,7 @@ func (m model) View() string {
 
 	if m.winner == "" {
 		m.constructFlexboxUi()
-	}
-	if m.winner != "" {
-
+	} else {
 		return lipgloss.Place(m.termWidth, m.termHeight, lipgloss.Center, lipgloss.Center, m.winner+" won")
 	}
 

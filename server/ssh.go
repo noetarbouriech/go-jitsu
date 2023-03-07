@@ -11,20 +11,17 @@ import (
 
 	"github.com/charmbracelet/ssh"
 	"github.com/charmbracelet/wish"
-	// bm "github.com/charmbracelet/wish/bubbletea"
+
 	"github.com/charmbracelet/wish/logging"
 	"github.com/noetarbouriech/go-jitsu/game"
-	// "github.com/noetarbouriech/go-jitsu/ui"
 )
 
 func InitServer(host string, port int) {
 	server, err := wish.NewServer(
 		wish.WithAddress(fmt.Sprintf("%s:%d", host, port)),
-		wish.WithHostKeyPath(".ssh/term_info_ed25519"),
 		wish.WithMiddleware(
 			game.GameMiddleware(),
 			logging.Middleware(),
-			// bm.Middleware(ui.TeaHandler),
 		),
 		wish.WithIdleTimeout(1*time.Hour),
 	)
